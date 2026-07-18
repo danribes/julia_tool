@@ -1,0 +1,24 @@
+# Keep secrets, local state, and dev cruft out of the build context and image.
+.venv/
+.git/
+.gitignore
+.superpowers/
+__pycache__/
+*.pyc
+*.pyo
+
+# Secrets and runtime state — mounted at run time, never baked in.
+clients.secret
+*.cer
+*.key
+*.pem
+.token_cache*
+state.sqlite
+downloads/
+config.yaml
+
+# Not needed inside the image.
+tests/
+docs/
+Dockerfile
+.dockerignore

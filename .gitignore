@@ -6,3 +6,6 @@ state.sqlite
 downloads/
 __pycache__/
 .venv/
+.superpowers/
+config.yaml
+*.pem
