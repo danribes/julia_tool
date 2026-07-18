@@ -2,6 +2,7 @@ tenant_id: "YOUR-ENTRA-TENANT-ID"
 client_id: "YOUR-APP-REGISTRATION-CLIENT-ID"
 mailbox: "buzon@tudespacho.mx"
 responsible_email: "responsable@tudespacho.mx"
+language: es   # es | en — UI/alert language (default es)
 poll_interval_s: 300
 allowed_domains:
   - sat.gob.mx
