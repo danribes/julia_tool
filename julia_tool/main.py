@@ -11,7 +11,7 @@ from julia_tool.alert import Alerter
 from julia_tool.classify import classify_text, extract_pdf_text
 from julia_tool.pipeline import process_message
 from julia_tool.i18n import t, resolve_lang
-from julia_tool.settings import load_settings, DEFAULTS
+from julia_tool.settings import load_settings
 
 def build_now():
     return lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -20,7 +20,7 @@ def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
             responsible=None, lang="es") -> dict:
     now = build_now()
     settings_path = getattr(cfg, "settings_path", "")
-    settings = load_settings(settings_path) if settings_path else dict(DEFAULTS)
+    settings = load_settings(settings_path) if settings_path else load_settings("")
     settings_email = settings.get("responsible_email") or None
     if responsible is not None:
         resolved_responsible = responsible
