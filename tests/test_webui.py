@@ -50,3 +50,15 @@ def test_post_bad_csrf_rejected(tmp_path):
     r = c.post("/", data={"csrf": "wrong", "alert_words": "x",
                           "responsible_email": ""})
     assert r.status_code == 400
+
+def test_post_invalid_email_preserves_prior_recipient(tmp_path):
+    c, p = _client(tmp_path)
+    token = _token(c.get("/").get_data(as_text=True))
+    c.post("/", data={"csrf": token, "alert_words": "multa",
+                      "responsible_email": "good@despacho.mx"})
+    token2 = _token(c.get("/").get_data(as_text=True))
+    c.post("/", data={"csrf": token2, "alert_words": "multa, embargo",
+                      "responsible_email": "bad"})
+    s = load_settings(p)
+    assert s["responsible_email"] == "good@despacho.mx"   # prior kept, not erased
+    assert s["alert_words"] == ["multa", "embargo"]        # words still updated

@@ -1,9 +1,10 @@
+import hmac
 import html
 import secrets
 from flask import Flask, request, abort
 from julia_tool.alert_words import parse_words
 from julia_tool.i18n import t, resolve_lang
-from julia_tool.settings import load_settings, save_settings, valid_email, DEFAULTS
+from julia_tool.settings import load_settings, save_settings, valid_email
 
 _PAGE = """<!doctype html>
 <html lang="{lang}"><head><meta charset="utf-8">
@@ -78,12 +79,15 @@ def create_app(settings_path: str, lang: str = "es") -> Flask:
 
     @app.post("/")
     def save():
-        if request.form.get("csrf") != app.config["CSRF_TOKEN"]:
+        token = request.form.get("csrf", "")
+        if not hmac.compare_digest(token, app.config["CSRF_TOKEN"]):
             abort(400)
         lg = resolve_lang(request.args.get("lang", app.config["DEFAULT_LANG"]))
         words = parse_words(request.form.get("alert_words", ""))
         email = (request.form.get("responsible_email", "") or "").strip()
-        data = {"alert_words": words, "responsible_email": ""}
+        existing = load_settings(app.config["SETTINGS_PATH"])
+        data = {"alert_words": words,
+                "responsible_email": existing["responsible_email"]}
         msgs = []
         if email and not valid_email(email):
             msgs.append(f'<div class="msg err">{html.escape(t("ui.invalid_email", lg))}</div>')
