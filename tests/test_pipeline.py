@@ -85,3 +85,34 @@ def test_dry_run_does_not_mark_processed():
         classify_pdf=_classify_ok, now=_NOW, dry_run=True)
     assert out == "alert_sent"
     assert st.processed == {}
+
+def test_rfc_found_but_no_credential_is_unknown_client():
+    st = _State(); al = _Alerter()
+
+    class _NoFetch:
+        def __init__(self):
+            self.called = False
+
+        def fetch(self, cred, headless=True):
+            self.called = True
+            return FetchResult(True, "/x.pdf", None, None)
+
+    nf = _NoFetch()
+    out = process_message(
+        _msg(body="Contribuyente XAXX010101000 requerimiento"),
+        cfg=_Cfg(), store=_Store(None), state=st, alerter=al,
+        fetcher=nf, classify_pdf=_classify_ok, now=_NOW)
+    assert out == "unknown_client"
+    assert ("unknown",) in al.calls
+    assert st.audits == []        # RFC known but no credential → no credential use
+    assert nf.called is False     # fetch never reached
+
+
+def test_dry_run_does_not_record_alert():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
+        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_ok, now=_NOW, dry_run=True)
+    assert out == "alert_sent"
+    assert st.alerts == []
