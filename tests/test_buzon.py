@@ -1,5 +1,5 @@
 import pytest
-from julia_tool.models import ClientCred
+from julia_tool.models import ClientCred, FetchResult
 from julia_tool.buzon import BuzonFetcher
 
 def _fetcher(tmp_path):
@@ -23,10 +23,31 @@ def test_unknown_auth_type_returns_error(tmp_path):
 
 def test_dispatch_routes_efirma(tmp_path, monkeypatch):
     f = _fetcher(tmp_path)
-    called = {}
+    received = {}
     monkeypatch.setattr(f, "_fetch_efirma",
-                        lambda cred, browser: called.setdefault("efirma", True))
+                        lambda cred, browser: received.setdefault("browser", browser))
     cred = ClientCred("XAXX010101000", "ACME", "efirma",
                       None, "/c.cer", "/k.key", "pw")
-    f.fetch(cred, headless=True, _browser_factory=lambda headless: object())
-    assert called.get("efirma") is True
+    sentinel = object()
+    f.fetch(cred, headless=True,
+            _browser_factory=lambda headless: (None, sentinel))
+    assert received.get("browser") is sentinel  # unpacked browser, not the (pw, browser) tuple
+
+
+def test_fetch_stops_playwright(tmp_path, monkeypatch):
+    f = _fetcher(tmp_path)
+
+    class _PW:
+        def __init__(self):
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    pw = _PW()
+    monkeypatch.setattr(f, "_fetch_ciec",
+                        lambda cred, browser: FetchResult(True, "/x.pdf", None, None))
+    cred = ClientCred("XAXX010101000", "ACME", "ciec", "pw", None, None, None)
+    res = f.fetch(cred, _browser_factory=lambda headless: (pw, object()))
+    assert res.ok is True
+    assert pw.stopped is True

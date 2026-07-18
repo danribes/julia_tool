@@ -24,14 +24,21 @@ class BuzonFetcher:
             return FetchResult(False, None,
                                f"unsupported auth_type: {cred.auth_type}", None)
         factory = _browser_factory or self._default_browser_factory
+        pw = None
         try:
-            browser = factory(headless if cred.auth_type == "efirma" else False)
+            pw, browser = factory(headless if cred.auth_type == "efirma" else False)
             if cred.auth_type == "efirma":
                 return self._fetch_efirma(cred, browser)
             return self._fetch_ciec(cred, browser)
         except Exception as exc:  # noqa: BLE001 — any failure → fallback alert
             shot = os.path.join(self.download_dir, f"{cred.rfc}_fail.png")
             return FetchResult(False, None, str(exc), shot)
+        finally:
+            if pw is not None:
+                try:
+                    pw.stop()
+                except Exception:  # noqa: BLE001 — best-effort cleanup
+                    pass
 
     def _fetch_efirma(self, cred: ClientCred, browser) -> FetchResult:
         # Live implementation validated manually (Task 15).
