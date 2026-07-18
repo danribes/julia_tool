@@ -76,7 +76,6 @@ def main(argv=None):
 
     cfg = load_config(ns.config)
     lang = resolve_lang(ns.lang or cfg.language)
-    responsible = ns.responsible or cfg.responsible_email
     import getpass
     master = os.environ.get("JULIA_MASTER_PW") or getpass.getpass(t("prompt.master_password", lang))
     store = SecretsStore(cfg.secrets_path, master)
@@ -88,7 +87,7 @@ def main(argv=None):
 
     while True:
         tally = run_once(cfg, store, state, graph, session, fetcher,
-                         dry_run=ns.dry_run, responsible=responsible, lang=lang)
+                         dry_run=ns.dry_run, responsible=ns.responsible, lang=lang)
         print(t("console.cycle_tally", lang, tally=tally), flush=True)
         if ns.once:
             return 0

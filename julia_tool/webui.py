@@ -60,7 +60,7 @@ def create_app(settings_path: str, lang: str = "es") -> Flask:
             lang_toggle=html.escape(t("ui.lang_toggle", lg)),
             title=html.escape(t("ui.title", lg)),
             message=message_html,
-            csrf=app.config["CSRF_TOKEN"],
+            csrf=html.escape(app.config["CSRF_TOKEN"], quote=True),
             aw_label=html.escape(t("ui.alert_words.label", lg)),
             aw_help=html.escape(t("ui.alert_words.help", lg)),
             aw_value=html.escape(", ".join(words), quote=True),

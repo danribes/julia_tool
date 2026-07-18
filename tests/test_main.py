@@ -192,3 +192,67 @@ def test_parser_accepts_port():
     from julia_tool.main import _build_parser
     ns = _build_parser().parse_args(["--port", "9001", "--once"])
     assert ns.port == 9001
+
+
+def test_main_end_to_end_honors_settings_recipient(tmp_path, monkeypatch):
+    import julia_tool.main as M
+    from types import SimpleNamespace
+    from julia_tool.settings import save_settings
+    from julia_tool.models import EmailMessage, ClientCred, FetchResult, Classification
+
+    sp = str(tmp_path / "ui_settings.json")
+    save_settings(sp, {"alert_words": [], "responsible_email": "ui@despacho.mx"})
+
+    cfg = SimpleNamespace(
+        tenant_id="t", client_id="c", mailbox="m@x",
+        responsible_email="cfg@despacho.mx", allowed_domains=["sat.gob.mx"],
+        keyword_map={"URGENT": ["requerimiento"], "ATTENTION": [], "INFO": []},
+        portal={"buzon_url": "https://sat.gob.mx"}, settings_path=sp,
+        secrets_path="x", state_path="y", download_dir="z", language="es",
+        poll_interval_s=1)
+    monkeypatch.setattr(M, "load_config", lambda path: cfg)
+
+    sent = {}
+
+    class _Graph:
+        def __init__(self, *a): pass
+        def acquire_token(self, prompt=True): return "tok"
+        def session(self, token): return None
+        def list_messages(self, session, top=25):
+            return [EmailMessage("m1", "asunto", "no-reply@sat.gob.mx",
+                                 "spf=pass dkim=pass",
+                                 "Contribuyente XAXX010101000", "t")]
+        def send_mail(self, session, to, subject, body, att):
+            sent["to"] = to
+
+    class _Store:
+        def __init__(self, *a): pass
+        def get(self, rfc):
+            return ClientCred("XAXX010101000", "ACME", "ciec", "pw",
+                              None, None, None)
+
+    class _State:
+        def __init__(self, *a): pass
+        def is_processed(self, mid): return False
+        def mark_processed(self, *a, **k): pass
+        def log_credential_use(self, *a, **k): pass
+        def record_alert(self, *a, **k): pass
+
+    class _Fetcher:
+        def __init__(self, *a): pass
+        def fetch(self, cred, headless=True):
+            return FetchResult(True, "/x.pdf", None, None)
+
+    monkeypatch.setattr(M, "GraphClient", _Graph)
+    monkeypatch.setattr(M, "SecretsStore", _Store)
+    monkeypatch.setattr(M, "State", _State)
+    monkeypatch.setattr(M, "BuzonFetcher", _Fetcher)
+    monkeypatch.setattr(M, "extract_pdf_text", lambda p: "documento")
+    monkeypatch.setattr(M, "classify_text",
+                        lambda text, km: Classification("URGENT", "requerimiento",
+                                                        None, ["requerimiento"]))
+    monkeypatch.setenv("JULIA_MASTER_PW", "x")
+
+    rc = M.main(["--once"])
+    assert rc == 0
+    assert sent.get("to") == "ui@despacho.mx"   # settings recipient wins, NOT cfg@

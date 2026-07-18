@@ -41,3 +41,23 @@ def test_valid_email():
     assert valid_email("bad") is False
     assert valid_email("") is False
     assert valid_email("a@b") is False
+
+
+def test_valid_email_rejects_trailing_newline():
+    assert valid_email("a@b.com\n") is False
+    assert valid_email("jefe@despacho.mx") is True
+
+def test_save_cleans_tmp_on_chmod_failure(tmp_path, monkeypatch):
+    import glob
+    import julia_tool.settings as S
+    p = str(tmp_path / "ui_settings.json")
+
+    def _boom(*a, **k):
+        raise OSError("chmod failed")
+
+    monkeypatch.setattr(S.os, "chmod", _boom)
+    try:
+        S.save_settings(p, dict(DEFAULTS))
+    except OSError:
+        pass
+    assert glob.glob(str(tmp_path / ".ui-settings-*.tmp")) == []   # no leaked tmp

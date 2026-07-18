@@ -5,7 +5,7 @@ import tempfile
 
 DEFAULTS = {"alert_words": [], "responsible_email": ""}
 _KEYS = tuple(DEFAULTS.keys())
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+\Z")
 
 
 def valid_email(s: str) -> bool:
@@ -40,8 +40,11 @@ def save_settings(path: str, data: dict) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(clean, f, ensure_ascii=False, indent=2)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
     except BaseException:
-        os.unlink(tmp)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
         raise
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
