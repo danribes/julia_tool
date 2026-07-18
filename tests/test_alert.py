@@ -30,3 +30,19 @@ def test_fetch_failed_includes_url():
     a.send_fetch_failed("XAXX010101000", "ACME", "https://sat.gob.mx/manual")
     body = a.graph.sent[0][2]
     assert "https://sat.gob.mx/manual" in body
+
+def test_quarantine_escapes_from_address():
+    a = _alerter()
+    a.send_quarantine("subj", "<img src=x onerror=alert(1)>@evil.com", "domain")
+    body = a.graph.sent[0][2]
+    assert "<img" not in body
+    assert "&lt;img" in body
+
+
+def test_urgent_escapes_client_name():
+    a = _alerter()
+    cls = Classification("URGENT", "requerimiento", None, ["requerimiento"])
+    a.send_urgent("XAXX010101000", "<b>Evil</b>", cls, None)
+    body = a.graph.sent[0][2]
+    assert "<b>Evil</b>" not in body
+    assert "&lt;b&gt;Evil" in body

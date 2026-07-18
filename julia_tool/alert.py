@@ -1,4 +1,10 @@
+import html
 from julia_tool.models import Classification
+
+
+def _esc(value) -> str:
+    return html.escape(str(value), quote=True)
+
 
 class Alerter:
     def __init__(self, graph, session, responsible_email: str):
@@ -10,12 +16,13 @@ class Alerter:
                     pdf: tuple[str, bytes] | None) -> str:
         subject = f"[{cls.urgency}][{rfc}] {cls.act_type}"
         deadline = cls.deadline or "no detectado"
+        terminos = ", ".join(cls.matched) or "—"
         body = (
-            f"<h2>Notificacion SAT — {cls.urgency}</h2>"
-            f"<p><b>Cliente:</b> {client_name} ({rfc})</p>"
-            f"<p><b>Tipo de acto:</b> {cls.act_type}</p>"
-            f"<p><b>Plazo:</b> {deadline}</p>"
-            f"<p><b>Terminos detectados:</b> {', '.join(cls.matched) or '—'}</p>"
+            f"<h2>Notificacion SAT — {_esc(cls.urgency)}</h2>"
+            f"<p><b>Cliente:</b> {_esc(client_name)} ({_esc(rfc)})</p>"
+            f"<p><b>Tipo de acto:</b> {_esc(cls.act_type)}</p>"
+            f"<p><b>Plazo:</b> {_esc(deadline)}</p>"
+            f"<p><b>Terminos detectados:</b> {_esc(terminos)}</p>"
         )
         atts = [pdf] if pdf else None
         self.graph.send_mail(self.session, self.to, subject, body, atts)
@@ -25,8 +32,8 @@ class Alerter:
         subject = f"[CUARENTENA] correo sospechoso: {msg_subject}"
         body = (
             "<h2>Correo bloqueado por verificacion anti-phishing</h2>"
-            f"<p><b>Remitente:</b> {from_address}</p>"
-            f"<p><b>Motivo:</b> fallo de verificacion '{reason}'</p>"
+            f"<p><b>Remitente:</b> {_esc(from_address)}</p>"
+            f"<p><b>Motivo:</b> fallo de verificacion '{_esc(reason)}'</p>"
             "<p>No se accedio a ninguna credencial. Revise manualmente.</p>"
         )
         self.graph.send_mail(self.session, self.to, subject, body, None)
@@ -43,10 +50,11 @@ class Alerter:
 
     def send_fetch_failed(self, rfc: str, client_name: str, manual_url: str) -> str:
         subject = f"[FALLO DESCARGA][{rfc}] revision manual requerida"
+        url = _esc(manual_url)
         body = (
             "<h2>No se pudo descargar el documento del portal SAT</h2>"
-            f"<p><b>Cliente:</b> {client_name} ({rfc})</p>"
-            f"<p>Ingrese manualmente al Buzon: <a href='{manual_url}'>{manual_url}</a></p>"
+            f"<p><b>Cliente:</b> {_esc(client_name)} ({_esc(rfc)})</p>"
+            f'<p>Ingrese manualmente al Buzon: <a href="{url}">{url}</a></p>'
         )
         self.graph.send_mail(self.session, self.to, subject, body, None)
         return subject
