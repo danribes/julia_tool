@@ -67,3 +67,36 @@ def test_main_resolves_responsible_or_falls_back_to_cfg(monkeypatch):
 
     ns2 = main_mod._build_parser().parse_args(["--once"])
     assert (ns2.responsible or cfg.responsible_email) == "default@example.com"
+
+
+def test_run_once_skips_duplicates_without_processing():
+    from types import SimpleNamespace
+    from julia_tool.models import EmailMessage
+    from julia_tool.main import run_once
+
+    def _mk(mid):
+        return EmailMessage(id=mid, subject="s", from_address="x@sat.gob.mx",
+                            auth_results="spf=pass; dkim=pass", body="b", received="t")
+
+    class _Graph:
+        def list_messages(self, session, top=25):
+            return [_mk("m1"), _mk("m2")]
+
+        def send_mail(self, *a, **k):
+            raise AssertionError("must not send mail for duplicates")
+
+    class _State:
+        def is_processed(self, mid):
+            return True
+
+        def mark_processed(self, *a, **k):
+            raise AssertionError("must not re-mark duplicates")
+
+    class _Store:
+        def get(self, rfc):
+            raise AssertionError("must not access credentials for duplicates")
+
+    cfg = SimpleNamespace(responsible_email="boss@firm.mx", keyword_map={},
+                          allowed_domains=["sat.gob.mx"], portal={})
+    tally = run_once(cfg, _Store(), _State(), _Graph(), None, None)
+    assert tally == {"skipped_duplicate": 2}
