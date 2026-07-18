@@ -21,14 +21,31 @@ def _domain_allowed(domain: str, allowed: list[str]) -> bool:
     return False
 
 
-def _tag(pattern: str, text: str) -> str | None:
-    m = re.search(pattern, text)
-    return m.group(1) if m else None
-
-
 def _auth_domain(value: str) -> str:
     """Reduce an auth identifier ('user@domain' or 'domain') to its domain."""
-    return value.rsplit("@", 1)[-1].strip().strip(";").lower()
+    return value.rsplit("@", 1)[-1].strip().lower()
+
+
+def _method_aligned_pass(clauses: list[str], method: str, id_tag: str,
+                         allowed: list[str]) -> bool:
+    """True iff some clause has <method>=pass and (its id_tag is absent OR aligned)."""
+    result_re = re.compile(rf"\b{method}=([a-z]+)")
+    id_re = re.compile(rf"\b{re.escape(id_tag)}=([^\s;]+)")
+    saw_result = False
+    for clause in clauses:
+        m = result_re.search(clause)
+        if not m:
+            continue
+        saw_result = True
+        if m.group(1) != "pass":
+            continue
+        idm = id_re.search(clause)
+        if idm is None or _domain_allowed(_auth_domain(idm.group(1)), allowed):
+            return True
+    # No clause carried this method at all → treated as "not passing" by caller.
+    # A clause carried a non-pass result, or every pass was misaligned → not aligned.
+    _ = saw_result
+    return False
 
 
 def is_genuine_sat(msg: EmailMessage, allowed_domains: list[str]) -> tuple[bool, str]:
@@ -37,27 +54,21 @@ def is_genuine_sat(msg: EmailMessage, allowed_domains: list[str]) -> tuple[bool,
         return False, "domain"
 
     ar = msg.auth_results.lower()
+    clauses = [c.strip() for c in ar.split(";") if c.strip()]
 
     # When the receiving MTA reports a DMARC verdict, it already encodes
     # From-domain alignment — trust it directly.
-    dmarc = _tag(r"\bdmarc=([a-z]+)", ar)
-    if dmarc is not None:
-        return (True, "ok") if dmarc == "pass" else (False, "dmarc")
+    dmarc_results = [
+        m.group(1) for c in clauses
+        if (m := re.search(r"\bdmarc=([a-z]+)", c))
+    ]
+    if dmarc_results:
+        return (True, "ok") if "pass" in dmarc_results else (False, "dmarc")
 
-    # No DMARC verdict: require SPF and DKIM to pass AND, where the aligning
-    # identifier is present, to be aligned to an allowed domain.
-    spf = _tag(r"\bspf=([a-z]+)", ar)
-    if spf != "pass":
+    # No DMARC verdict: require an aligned SPF pass AND an aligned DKIM pass.
+    if not _method_aligned_pass(clauses, "spf", "smtp.mailfrom", allowed_domains):
         return False, "spf"
-    mailfrom = _tag(r"smtp\.mailfrom=([^\s;]+)", ar)
-    if mailfrom is not None and not _domain_allowed(_auth_domain(mailfrom), allowed_domains):
-        return False, "spf"
-
-    dkim = _tag(r"\bdkim=([a-z]+)", ar)
-    if dkim != "pass":
-        return False, "dkim"
-    header_d = _tag(r"header\.d=([^\s;]+)", ar)
-    if header_d is not None and not _domain_allowed(_auth_domain(header_d), allowed_domains):
+    if not _method_aligned_pass(clauses, "dkim", "header.d", allowed_domains):
         return False, "dkim"
 
     return True, "ok"
