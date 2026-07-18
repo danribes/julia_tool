@@ -20,6 +20,7 @@ class Config:
     secrets_path: str = "clients.secret"
     state_path: str = "state.sqlite"
     download_dir: str = "downloads"
+    settings_path: str = "ui_settings.json"
     language: str = "es"
 
 def load_config(path: str) -> Config:
@@ -41,5 +42,6 @@ def load_config(path: str) -> Config:
         secrets_path=raw.get("secrets_path", "clients.secret"),
         state_path=raw.get("state_path", "state.sqlite"),
         download_dir=raw.get("download_dir", "downloads"),
+        settings_path=raw.get("settings_path", "ui_settings.json"),
         language=resolve_lang(raw.get("language", "es")),
     )

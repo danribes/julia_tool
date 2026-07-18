@@ -37,3 +37,8 @@ def test_language_en_respected(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text(_MIN + "language: EN\n")
     assert load_config(str(p)).language == "en"
+
+def test_settings_path_default(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN)
+    assert load_config(str(p)).settings_path == "ui_settings.json"
