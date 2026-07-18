@@ -1,0 +1,18 @@
+tenant_id: "YOUR-ENTRA-TENANT-ID"
+client_id: "YOUR-APP-REGISTRATION-CLIENT-ID"
+mailbox: "buzon@tudespacho.mx"
+responsible_email: "responsable@tudespacho.mx"
+poll_interval_s: 300
+allowed_domains:
+  - sat.gob.mx
+use_claude: false
+secrets_path: clients.secret
+state_path: state.sqlite
+download_dir: downloads
+portal:
+  efirma_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=fielHtml5"
+  ciec_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=SATUPCB"
+  buzon_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=SATx509Custom"
+  notifications_selector: "table#notificaciones tbody tr"
+  download_link_selector: "a.descargar"
+# keyword_map: optional override; omit to use built-in Spanish defaults
