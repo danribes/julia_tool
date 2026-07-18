@@ -28,6 +28,10 @@ class _Fetcher:
     def __init__(self, result): self._r = result
     def fetch(self, cred, headless=True): return self._r
 
+class _BoomFetcher:
+    def fetch(self, cred, headless=True):
+        raise AssertionError("dry-run must never call fetch()")
+
 def _msg(frm="no-reply@sat.gob.mx", auth="spf=pass dkim=pass",
          body="Contribuyente XAXX010101000 requerimiento"):
     return EmailMessage("m1", "asunto", frm, auth, body, "2026-07-18T00:00:00Z")
@@ -37,6 +41,9 @@ _CRED = ClientCred("XAXX010101000", "ACME", "ciec", "pw", None, None, None)
 
 def _classify_ok(_path):
     return Classification("URGENT", "requerimiento", None, ["requerimiento"])
+
+def _classify_boom(_path):
+    raise ValueError("corrupt pdf")
 
 def test_happy_path_sends_urgent():
     st = _State(); al = _Alerter()
@@ -77,15 +84,6 @@ def test_fetch_failure_sends_fallback():
     assert ("failed", "XAXX010101000") in al.calls
     assert st.audits[0][2] == "fail"
 
-def test_dry_run_does_not_mark_processed():
-    st = _State(); al = _Alerter()
-    out = process_message(
-        _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
-        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
-        classify_pdf=_classify_ok, now=_NOW, dry_run=True)
-    assert out == "alert_sent"
-    assert st.processed == {}
-
 def test_rfc_found_but_no_credential_is_unknown_client():
     st = _State(); al = _Alerter()
 
@@ -107,12 +105,34 @@ def test_rfc_found_but_no_credential_is_unknown_client():
     assert st.audits == []        # RFC known but no credential → no credential use
     assert nf.called is False     # fetch never reached
 
-
-def test_dry_run_does_not_record_alert():
+def test_classify_crash_is_fetch_failed():
     st = _State(); al = _Alerter()
     out = process_message(
         _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
         fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_boom, now=_NOW)
+    assert out == "fetch_failed"          # corrupt PDF → fallback, not a crash
+    assert ("failed", "XAXX010101000") in al.calls
+    assert st.audits[0][2] == "ok"        # fetch succeeded; classification failed
+
+def test_dry_run_sends_nothing_and_no_credential_use():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
+        fetcher=_BoomFetcher(),        # would raise if fetch() were called
         classify_pdf=_classify_ok, now=_NOW, dry_run=True)
     assert out == "alert_sent"
-    assert st.alerts == []
+    assert st.processed == {}          # not marked processed
+    assert st.alerts == []             # no alert recorded
+    assert st.audits == []             # no credential use logged
+    assert al.calls == []              # no mail sent
+
+def test_dry_run_quarantine_sends_nothing():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(frm="evil@fake.com"), cfg=_Cfg(), store=_Store(_CRED), state=st,
+        alerter=al, fetcher=_BoomFetcher(),
+        classify_pdf=_classify_ok, now=_NOW, dry_run=True)
+    assert out == "quarantined"
+    assert st.processed == {}
+    assert al.calls == []              # dry-run does not even send the quarantine notice

@@ -25,8 +25,11 @@ class GraphClient:
 
     def _save_cache(self, cache: msal.SerializableTokenCache) -> None:
         if cache.has_state_changed:
-            with open(self.token_cache_path, "w") as f:
+            fd = os.open(self.token_cache_path,
+                         os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
                 f.write(cache.serialize())
+            os.chmod(self.token_cache_path, 0o600)
 
     def acquire_token(self, prompt: bool = True) -> str:
         cache = self._cache()
