@@ -29,3 +29,12 @@ def classify_text(text: str, keyword_map: dict[str, list[str]]) -> Classificatio
             )
     return Classification(
         urgency="INFO", act_type="desconocido", deadline=None, matched=[])
+
+
+def extract_pdf_text(pdf_path: str) -> str:
+    import fitz  # PyMuPDF
+    parts = []
+    with fitz.open(pdf_path) as doc:
+        for page in doc:
+            parts.append(page.get_text())
+    return "\n".join(parts)
