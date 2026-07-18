@@ -1,0 +1,8 @@
+clients.secret
+*.cer
+*.key
+state.sqlite
+.token_cache*
+downloads/
+__pycache__/
+.venv/
