@@ -9,3 +9,4 @@ __pycache__/
 .superpowers/
 config.yaml
 *.pem
+ui_settings.json

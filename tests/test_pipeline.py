@@ -136,3 +136,48 @@ def test_dry_run_quarantine_sends_nothing():
     assert out == "quarantined"
     assert st.processed == {}
     assert al.calls == []              # dry-run does not even send the quarantine notice
+
+def _reader_ok(_path):
+    return "cuerpo del documento con multa aplicada"
+
+def test_forward_gate_match_sends():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
+        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_ok, now=_NOW,
+        alert_words=["multa"], read_pdf_text=_reader_ok)
+    assert out == "alert_sent"
+    assert ("urgent", "XAXX010101000") in al.calls
+
+def test_forward_gate_no_match_not_forwarded():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(body="Contribuyente XAXX010101000 texto sin terminos"), cfg=_Cfg(), store=_Store(_CRED),
+        state=st, alerter=al,
+        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_ok, now=_NOW,
+        alert_words=["embargo"], read_pdf_text=lambda p: "nada relevante")
+    assert out == "not_forwarded"
+    assert al.calls == []                 # no alert sent
+    assert st.processed["m1"] == "not_forwarded"
+    assert st.audits and st.audits[0][2] == "ok"   # fetch still audited
+
+def test_forward_gate_empty_words_forwards():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(), cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
+        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_ok, now=_NOW,
+        alert_words=[], read_pdf_text=lambda p: "nada")
+    assert out == "alert_sent"
+
+def test_forward_gate_matches_on_email_when_doc_lacks_it():
+    st = _State(); al = _Alerter()
+    out = process_message(
+        _msg(body="Contribuyente XAXX010101000 con embargo precautorio"),
+        cfg=_Cfg(), store=_Store(_CRED), state=st, alerter=al,
+        fetcher=_Fetcher(FetchResult(True, "/x.pdf", None, None)),
+        classify_pdf=_classify_ok, now=_NOW,
+        alert_words=["embargo"], read_pdf_text=lambda p: "documento sin la palabra")
+    assert out == "alert_sent"

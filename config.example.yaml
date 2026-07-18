@@ -10,6 +10,7 @@ use_claude: false
 secrets_path: clients.secret
 state_path: state.sqlite
 download_dir: downloads
+settings_path: ui_settings.json   # web-UI settings (alert words + recipient)
 portal:
   efirma_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=fielHtml5"
   ciec_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=SATUPCB"

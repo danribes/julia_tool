@@ -16,7 +16,8 @@ embargo, …) a partir del texto del PDF, y envía por correo una alerta con el 
 adjunto a la persona responsable fija del despacho. Cada paso —verificación del
 remitente, uso de credenciales y alerta— queda registrado, y ningún mensaje se
 descarta jamás en silencio: cada uno termina en exactamente uno de estos resultados:
-alert-sent, quarantined, unknown-client, fetch-failed o skipped-duplicate.
+alert-sent, not-forwarded, quarantined, unknown-client, fetch-failed o
+skipped-duplicate.
 
 ## Requisito legal / operativo
 
@@ -181,6 +182,51 @@ Indicadores útiles en cada ejecución:
   salida en consola, los correos de alerta y la CLI de `client` en esta ejecución
   (`--lang` también funciona antes de `client add` / `client list` / `client remove`).
   El valor predeterminado es `es`; un valor no reconocido recae en `es`.
+
+## Interfaz web
+
+```bash
+python -m julia_tool.main ui --port 8770
+```
+
+Esto abre una pequeña página web local (`http://127.0.0.1:8770`) donde el operador
+puede configurar dos cosas sin editar `config.yaml` ni reiniciar el vigilante:
+- **Palabras de alerta** — una lista separada por comas (por ejemplo,
+  `requerimiento, multa, sanción`).
+- **Correo del destinatario** — la dirección que recibe los correos de alerta.
+
+Ambas se guardan en `settings_path` de `config.yaml` (por defecto `ui_settings.json`,
+ya excluido en git —contiene datos operativos, no un secreto) y el vigilante las vuelve
+a leer en cada ciclo de consulta, así que los cambios surten efecto sin reiniciar
+`julia_tool`.
+
+**El filtro de reenvío.** Las palabras de alerta filtran el *reenvío* de una
+notificación genuina del SAT, no su clasificación —cada mensaje sigue verificándose,
+descargándose y clasificándose igual que antes. Las palabras se comparan contra el
+correo de notificación (asunto + cuerpo) y contra el texto del documento del SAT
+descargado:
+- Una lista de palabras **vacía** reenvía todo —este es el comportamiento
+  predeterminado, así que nada cambia hasta que el operador decida participar
+  escribiendo al menos una palabra.
+- Si alguna palabra **coincide**, la alerta se envía al destinatario como siempre
+  (resultado `alert_sent`).
+- Si **ninguna palabra coincide**, la alerta **no se envía** —el resultado es
+  `not_forwarded`. Aun así queda registrada y auditada (nada se descarta en silencio),
+  simplemente no se envía por correo.
+
+La coincidencia es **insensible a acentos y a mayúsculas/minúsculas**, así que
+`sancion` coincide con `sanción` y `MULTA` coincide con `multa`.
+
+**Las alertas de cuarentena, cliente desconocido y descarga fallida nunca se
+filtran** —esos son avisos de seguridad u operativos, no notificaciones del SAT, y
+siempre se envían sin importar las palabras de alerta.
+
+**Precedencia del destinatario**, de mayor a menor prioridad: el indicador
+`--responsible` de esta ejecución > el correo del destinatario guardado en la interfaz
+web (si está configurado) > `responsible_email` en `config.yaml`.
+
+La interfaz web se enlaza únicamente a `127.0.0.1` —nunca es accesible desde la red, y
+no toca el almacén cifrado de credenciales ni pide la contraseña maestra.
 
 ## Notas de seguridad
 

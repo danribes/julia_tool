@@ -13,7 +13,7 @@ stored credentials (e.firma or CIEC) to download the real notification PDF, clas
 its urgency (requerimiento, multa, sanción, embargo, …) from the PDF text, and e-mails
 an alert with the PDF attached to the office's fixed responsible person. Every step —
 sender verification, credential use, and alert — is logged, and no message is ever
-silently dropped: each one ends in exactly one of alert-sent, quarantined,
+silently dropped: each one ends in exactly one of alert-sent, not-forwarded, quarantined,
 unknown-client, fetch-failed, or skipped-duplicate.
 
 ## Legal / operational prerequisite
@@ -171,6 +171,46 @@ Useful flags on every run:
   alert e-mails, and the `client` CLI (`--lang` also works before `client add` /
   `client list` / `client remove`). Default is `es`; an unrecognized value falls back
   to `es`.
+
+## Web UI
+
+```bash
+python -m julia_tool.main ui --port 8770
+```
+
+This opens a small local web page (`http://127.0.0.1:8770`) where the operator can set
+two things without editing `config.yaml` or restarting the watcher:
+- **Alert words** — a comma-separated list (e.g. `requerimiento, multa, sanción`).
+- **Recipient email** — the address that receives the alert e-mails.
+
+Both are saved to `settings_path` in `config.yaml` (default `ui_settings.json`, already
+git-ignored — it holds operator data, not a secret) and are re-read by the watcher on
+every poll cycle, so edits take effect without restarting `julia_tool`.
+
+**The forward gate.** Alert words gate the *forward* of a genuine SAT notification, not
+its classification — every message is still verified, fetched, and classified as
+before. The words are matched against the notification e-mail (subject + body) and the
+text of the fetched SAT document:
+- An **empty** word list forwards everything — this is the default, so behavior is
+  unchanged until the operator opts in by typing at least one word.
+- If any word **matches**, the alert is sent to the recipient as usual (outcome
+  `alert_sent`).
+- If **no word matches**, the alert is **not sent** — the outcome is `not_forwarded`.
+  It is still logged and audited (nothing is silently dropped), it is just not e-mailed.
+
+Matching is **accent- and case-insensitive**, so `sancion` matches `sanción` and
+`MULTA` matches `multa`.
+
+**The quarantine, unknown-client, and fetch-failed alerts are never gated** — those are
+security/operational notices, not SAT notifications, and are always sent regardless of
+alert words.
+
+**Recipient precedence**, highest wins: the `--responsible` command-line flag on this
+run > the recipient email saved in the UI (if set) > `responsible_email` in
+`config.yaml`.
+
+The UI binds to `127.0.0.1` only — it is never reachable from the network, and it does
+not touch the encrypted credential store or ask for the master password.
 
 ## Security notes
 

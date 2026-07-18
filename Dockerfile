@@ -17,6 +17,13 @@
 #     -v "$PWD/.token_cache.bin:/app/.token_cache.bin" \
 #     -v "$PWD/downloads:/app/downloads" \
 #     julia_tool --once
+#
+# Web UI (set alert words + recipient email, localhost only):
+#   docker run --rm -p 8770:8770 -e JULIA_MASTER_PW=... \
+#     -v "$PWD/ui_settings.json:/app/ui_settings.json" \
+#     julia_tool ui --port 8770
+#   The UI binds 127.0.0.1 inside the container, so it is only reachable
+#   through the mapped -p port on the host, never directly from the network.
 
 FROM python:3.12-slim
 
@@ -38,6 +45,8 @@ RUN useradd --create-home --uid 10001 appuser \
     && mkdir -p /app/downloads \
     && chown -R appuser:appuser /app /ms-playwright
 USER appuser
+
+EXPOSE 8770
 
 # Default command is a safe dry-run. Override for real runs (see header).
 ENTRYPOINT ["python", "-m", "julia_tool.main"]

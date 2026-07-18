@@ -11,6 +11,7 @@ from julia_tool.alert import Alerter
 from julia_tool.classify import classify_text, extract_pdf_text
 from julia_tool.pipeline import process_message
 from julia_tool.i18n import t, resolve_lang
+from julia_tool.settings import load_settings
 
 def build_now():
     return lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -18,7 +19,16 @@ def build_now():
 def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
             responsible=None, lang="es") -> dict:
     now = build_now()
-    resolved_responsible = responsible if responsible is not None else cfg.responsible_email
+    settings_path = getattr(cfg, "settings_path", "")
+    settings = load_settings(settings_path) if settings_path else load_settings("")
+    settings_email = settings.get("responsible_email") or None
+    if responsible is not None:
+        resolved_responsible = responsible
+    elif settings_email:
+        resolved_responsible = settings_email
+    else:
+        resolved_responsible = cfg.responsible_email
+    alert_words = settings.get("alert_words", [])
     alerter = Alerter(graph, session, resolved_responsible, lang=resolve_lang(lang))
     def classify_pdf(path):
         return classify_text(extract_pdf_text(path), cfg.keyword_map)
@@ -30,7 +40,7 @@ def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
             outcome = process_message(
                 msg, cfg=cfg, store=store, state=state, alerter=alerter,
                 fetcher=fetcher, classify_pdf=classify_pdf, now=now,
-                dry_run=dry_run)
+                dry_run=dry_run, alert_words=alert_words, read_pdf_text=extract_pdf_text)
         tally[outcome] = tally.get(outcome, 0) + 1
     return tally
 
@@ -44,6 +54,8 @@ def _build_parser() -> argparse.ArgumentParser:
                              "for alert recipients on this run")
     parser.add_argument("--lang", default=None,
                         help="es | en — output language (default es / config)")
+    parser.add_argument("--port", type=int, default=8770,
+                        help="port for the `ui` web settings server")
     parser.add_argument("rest", nargs=argparse.REMAINDER)
     return parser
 
@@ -51,13 +63,19 @@ def main(argv=None):
     parser = _build_parser()
     ns = parser.parse_args(argv)
 
+    if ns.rest and ns.rest[0] == "ui":
+        from julia_tool.webui import run_ui
+        cfg = load_config(ns.config)
+        lang = resolve_lang(ns.lang or cfg.language)
+        run_ui(cfg.settings_path, port=ns.port, lang=lang)
+        return 0
+
     if ns.rest and ns.rest[0] == "client":
         from julia_tool.clientcli import run as client_run
         return client_run(ns.rest[1:], lang=resolve_lang(ns.lang))
 
     cfg = load_config(ns.config)
     lang = resolve_lang(ns.lang or cfg.language)
-    responsible = ns.responsible or cfg.responsible_email
     import getpass
     master = os.environ.get("JULIA_MASTER_PW") or getpass.getpass(t("prompt.master_password", lang))
     store = SecretsStore(cfg.secrets_path, master)
@@ -69,7 +87,7 @@ def main(argv=None):
 
     while True:
         tally = run_once(cfg, store, state, graph, session, fetcher,
-                         dry_run=ns.dry_run, responsible=responsible, lang=lang)
+                         dry_run=ns.dry_run, responsible=ns.responsible, lang=lang)
         print(t("console.cycle_tally", lang, tally=tally), flush=True)
         if ns.once:
             return 0
