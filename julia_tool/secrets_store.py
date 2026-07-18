@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import tempfile
 from dataclasses import asdict
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -10,7 +11,7 @@ _MAGIC = b"JTS1"
 _SALT_LEN = 16
 
 def _derive_key(master_password: str, salt: bytes) -> bytes:
-    kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
+    kdf = Scrypt(salt=salt, length=32, n=2**16, r=8, p=1)
     raw = kdf.derive(master_password.encode("utf-8"))
     return base64.urlsafe_b64encode(raw)
 
@@ -39,9 +40,13 @@ class SecretsStore:
     def _flush(self) -> None:
         fernet = Fernet(_derive_key(self._pw, self._salt))
         token = fernet.encrypt(json.dumps(self._db).encode("utf-8"))
-        tmp = self.path + ".tmp"
-        with open(tmp, "wb") as f:
-            f.write(_MAGIC + self._salt + token)
+        dirname = os.path.dirname(self.path) or "."
+        fd, tmp = tempfile.mkstemp(dir=dirname, prefix=".secrets-", suffix=".tmp")
+        try:
+            os.write(fd, _MAGIC + self._salt + token)
+        finally:
+            os.close(fd)
+        os.chmod(tmp, 0o600)
         os.replace(tmp, self.path)
 
     def add(self, cred: ClientCred) -> None:

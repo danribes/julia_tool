@@ -39,3 +39,12 @@ def test_list_and_remove(tmp_path):
 def test_missing_returns_none(tmp_path):
     s = SecretsStore(str(tmp_path / "clients.secret"), "pw")
     assert s.get("NOPE010101ABC") is None
+
+def test_file_permissions_owner_only(tmp_path):
+    import os
+    import stat
+    p = str(tmp_path / "clients.secret")
+    s = SecretsStore(p, "master-pw")
+    s.add(_cred())
+    mode = stat.S_IMODE(os.stat(p).st_mode)
+    assert mode == 0o600
