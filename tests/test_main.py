@@ -130,3 +130,65 @@ def test_parser_accepts_lang():
     from julia_tool.main import _build_parser
     ns = _build_parser().parse_args(["--lang", "en", "--once"])
     assert ns.lang == "en"
+
+
+def test_run_once_recipient_precedence_settings_over_config(tmp_path):
+    from types import SimpleNamespace
+    from julia_tool.main import run_once
+    from julia_tool.settings import save_settings
+    from julia_tool.models import EmailMessage
+
+    sp = str(tmp_path / "ui_settings.json")
+    save_settings(sp, {"alert_words": [], "responsible_email": "ui@x.mx"})
+    captured = {}
+
+    class _Graph:
+        def list_messages(self, session, top=25):
+            return [EmailMessage("m1", "s", "evil@fake.com", "spf=pass dkim=pass",
+                                 "b", "t")]
+        def send_mail(self, session, to, subject, body, att):
+            captured["to"] = to
+
+    class _State:
+        def is_processed(self, mid): return False
+        def mark_processed(self, *a, **k): pass
+
+    cfg = SimpleNamespace(responsible_email="cfg@x.mx", keyword_map={},
+                          allowed_domains=["sat.gob.mx"], portal={},
+                          settings_path=sp)
+    run_once(cfg, None, _State(), _Graph(), None, None)
+    assert captured["to"] == "ui@x.mx"  # settings beat config; not overridden by flag
+
+
+def test_run_once_flag_beats_settings(tmp_path):
+    from types import SimpleNamespace
+    from julia_tool.main import run_once
+    from julia_tool.settings import save_settings
+    from julia_tool.models import EmailMessage
+
+    sp = str(tmp_path / "ui_settings.json")
+    save_settings(sp, {"alert_words": [], "responsible_email": "ui@x.mx"})
+    captured = {}
+
+    class _Graph:
+        def list_messages(self, session, top=25):
+            return [EmailMessage("m1", "s", "evil@fake.com", "spf=pass dkim=pass",
+                                 "b", "t")]
+        def send_mail(self, session, to, subject, body, att):
+            captured["to"] = to
+
+    class _State:
+        def is_processed(self, mid): return False
+        def mark_processed(self, *a, **k): pass
+
+    cfg = SimpleNamespace(responsible_email="cfg@x.mx", keyword_map={},
+                          allowed_domains=["sat.gob.mx"], portal={},
+                          settings_path=sp)
+    run_once(cfg, None, _State(), _Graph(), None, None, responsible="flag@x.mx")
+    assert captured["to"] == "flag@x.mx"
+
+
+def test_parser_accepts_port():
+    from julia_tool.main import _build_parser
+    ns = _build_parser().parse_args(["--port", "9001", "--once"])
+    assert ns.port == 9001
