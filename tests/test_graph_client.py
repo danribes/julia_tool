@@ -1,3 +1,5 @@
+import base64
+
 from julia_tool.graph_client import GraphClient
 
 RAW = {
@@ -45,3 +47,18 @@ def test_send_mail_posts_payload():
     sess = _FakeSession({})
     _client().send_mail(sess, "boss@firm.mx", "S", "<p>hi</p>", None)
     assert sess.posted and sess.posted[0]["message"]["subject"] == "S"
+
+def test_parse_message_null_email_address_safe():
+    raw = {"id": "B", "from": {"emailAddress": None},
+           "body": {"content": "x"}, "receivedDateTime": "t"}
+    m = _client()._parse_message(raw)
+    assert m.from_address == ""
+
+def test_send_mail_encodes_attachment():
+    sess = _FakeSession({})
+    _client().send_mail(sess, "boss@firm.mx", "S", "<p>hi</p>",
+                        [("doc.pdf", b"%PDF-1.4 data")])
+    att = sess.posted[0]["message"]["attachments"][0]
+    assert att["@odata.type"] == "#microsoft.graph.fileAttachment"
+    assert att["name"] == "doc.pdf"
+    assert base64.b64decode(att["contentBytes"]) == b"%PDF-1.4 data"

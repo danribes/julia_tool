@@ -19,7 +19,8 @@ class GraphClient:
     def _cache(self) -> msal.SerializableTokenCache:
         cache = msal.SerializableTokenCache()
         if os.path.exists(self.token_cache_path):
-            cache.deserialize(open(self.token_cache_path).read())
+            with open(self.token_cache_path) as f:
+                cache.deserialize(f.read())
         return cache
 
     def _save_cache(self, cache: msal.SerializableTokenCache) -> None:
@@ -63,8 +64,8 @@ class GraphClient:
         return EmailMessage(
             id=raw.get("id", ""),
             subject=raw.get("subject", "") or "",
-            from_address=(raw.get("from", {}) or {}).get("emailAddress", {})
-                .get("address", ""),
+            from_address=(((raw.get("from") or {}).get("emailAddress") or {})
+                          .get("address") or ""),
             auth_results=self._extract_auth_results(
                 raw.get("internetMessageHeaders", [])),
             body=(raw.get("body", {}) or {}).get("content", "") or "",
