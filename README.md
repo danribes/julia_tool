@@ -1,3 +1,5 @@
+> 🌐 English | [Español](README.es.md)
+
 # julia_tool — SAT Buzón Tributario watcher
 
 `julia_tool` is an unattended watcher for a Mexican accountancy office that supervises
@@ -94,6 +96,10 @@ Then edit `config.yaml`:
 - `keyword_map`: **optional**. Omit it entirely to use the built-in Spanish urgency
   keyword rules (`julia_tool/classify.py:DEFAULT_KEYWORDS`); only set it to override
   those defaults.
+- `language`: **optional**, `es` | `en` — the language used for console output,
+  the `client` CLI, and alert e-mails. Defaults to `es`; an invalid value also falls
+  back to `es`. Override it for a single run without editing `config.yaml` with the
+  `--lang` flag (see "Run" below).
 
 ## Add clients
 
@@ -161,6 +167,10 @@ Useful flags on every run:
   editing the config).
 - `--config PATH` — use a config file other than `config.yaml` (e.g. a per-environment
   or per-test config).
+- `--lang es|en` — override `config.yaml`'s `language` for this run's console output,
+  alert e-mails, and the `client` CLI (`--lang` also works before `client add` /
+  `client list` / `client remove`). Default is `es`; an unrecognized value falls back
+  to `es`.
 
 ## Security notes
 

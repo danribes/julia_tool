@@ -20,3 +20,12 @@ def test_remove(tmp_path):
     rc = run(["remove", "--rfc", "ACM950101ABC"], factory)
     assert rc == 0
     assert SecretsStore(p, "master").get("ACM950101ABC") is None
+
+def test_add_message_localized_en(tmp_path, capsys):
+    from julia_tool.clientcli import run
+    from julia_tool.secrets_store import SecretsStore
+    p = str(tmp_path / "clients.secret")
+    factory = lambda pw: SecretsStore(p, "master")
+    run(["add", "--rfc", "XAXX010101000", "--name", "ACME",
+         "--auth-type", "ciec", "--ciec-password", "pw"], factory, lang="en")
+    assert "added XAXX010101000" in capsys.readouterr().out

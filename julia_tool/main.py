@@ -10,15 +10,16 @@ from julia_tool.buzon import BuzonFetcher
 from julia_tool.alert import Alerter
 from julia_tool.classify import classify_text, extract_pdf_text
 from julia_tool.pipeline import process_message
+from julia_tool.i18n import t, resolve_lang
 
 def build_now():
     return lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
-            responsible=None) -> dict:
+            responsible=None, lang="es") -> dict:
     now = build_now()
     resolved_responsible = responsible if responsible is not None else cfg.responsible_email
-    alerter = Alerter(graph, session, resolved_responsible)
+    alerter = Alerter(graph, session, resolved_responsible, lang=resolve_lang(lang))
     def classify_pdf(path):
         return classify_text(extract_pdf_text(path), cfg.keyword_map)
     tally: dict[str, int] = {}
@@ -41,6 +42,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--responsible", default=None,
                         help="override config.yaml's responsible_email "
                              "for alert recipients on this run")
+    parser.add_argument("--lang", default=None,
+                        help="es | en — output language (default es / config)")
     parser.add_argument("rest", nargs=argparse.REMAINDER)
     return parser
 
@@ -50,12 +53,13 @@ def main(argv=None):
 
     if ns.rest and ns.rest[0] == "client":
         from julia_tool.clientcli import run as client_run
-        return client_run(ns.rest[1:])
+        return client_run(ns.rest[1:], lang=resolve_lang(ns.lang))
 
     cfg = load_config(ns.config)
+    lang = resolve_lang(ns.lang or cfg.language)
     responsible = ns.responsible or cfg.responsible_email
     import getpass
-    master = os.environ.get("JULIA_MASTER_PW") or getpass.getpass("Master password: ")
+    master = os.environ.get("JULIA_MASTER_PW") or getpass.getpass(t("prompt.master_password", lang))
     store = SecretsStore(cfg.secrets_path, master)
     state = State(cfg.state_path)
     graph = GraphClient(cfg.tenant_id, cfg.client_id, cfg.mailbox)
@@ -65,8 +69,8 @@ def main(argv=None):
 
     while True:
         tally = run_once(cfg, store, state, graph, session, fetcher,
-                         dry_run=ns.dry_run, responsible=responsible)
-        print(f"cycle tally: {tally}", flush=True)
+                         dry_run=ns.dry_run, responsible=responsible, lang=lang)
+        print(t("console.cycle_tally", lang, tally=tally), flush=True)
         if ns.once:
             return 0
         time.sleep(cfg.poll_interval_s)

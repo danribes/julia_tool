@@ -17,8 +17,9 @@ def _capture_alerter(monkeypatch):
     captured = {}
 
     class _FakeAlerter:
-        def __init__(self, graph, session, responsible_email):
+        def __init__(self, graph, session, responsible_email, lang="es"):
             captured["responsible_email"] = responsible_email
+            captured["lang"] = lang
 
     monkeypatch.setattr(main_mod, "Alerter", _FakeAlerter)
     return captured
@@ -100,3 +101,32 @@ def test_run_once_skips_duplicates_without_processing():
                           allowed_domains=["sat.gob.mx"], portal={})
     tally = run_once(cfg, _Store(), _State(), _Graph(), None, None)
     assert tally == {"skipped_duplicate": 2}
+
+
+def test_run_once_passes_lang_to_alerter():
+    from types import SimpleNamespace
+    from julia_tool.models import EmailMessage
+    from julia_tool.main import run_once
+
+    captured = {}
+
+    class _Graph:
+        def list_messages(self, session, top=25):
+            return [EmailMessage("m1", "s", "evil@fake.com", "spf=pass dkim=pass",
+                                 "b", "t")]
+        def send_mail(self, session, to, subject, body, att):
+            captured["subject"] = subject
+
+    class _State:
+        def is_processed(self, mid): return False
+        def mark_processed(self, *a, **k): pass
+
+    cfg = SimpleNamespace(responsible_email="boss@firm.mx", keyword_map={},
+                          allowed_domains=["sat.gob.mx"], portal={})
+    run_once(cfg, None, _State(), _Graph(), None, None, lang="en")
+    assert "QUARANTINE" in captured["subject"]   # English alert emitted
+
+def test_parser_accepts_lang():
+    from julia_tool.main import _build_parser
+    ns = _build_parser().parse_args(["--lang", "en", "--once"])
+    assert ns.lang == "en"

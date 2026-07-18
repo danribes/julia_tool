@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import yaml
 from julia_tool.classify import DEFAULT_KEYWORDS
+from julia_tool.i18n import resolve_lang
 
 _REQUIRED = ["tenant_id", "client_id", "mailbox", "responsible_email"]
 
@@ -19,6 +20,7 @@ class Config:
     secrets_path: str = "clients.secret"
     state_path: str = "state.sqlite"
     download_dir: str = "downloads"
+    language: str = "es"
 
 def load_config(path: str) -> Config:
     with open(path, "r", encoding="utf-8") as f:
@@ -39,4 +41,5 @@ def load_config(path: str) -> Config:
         secrets_path=raw.get("secrets_path", "clients.secret"),
         state_path=raw.get("state_path", "state.sqlite"),
         download_dir=raw.get("download_dir", "downloads"),
+        language=resolve_lang(raw.get("language", "es")),
     )

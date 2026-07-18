@@ -1,15 +1,16 @@
 import argparse
 import os
 from julia_tool.models import ClientCred
+from julia_tool.i18n import t
 
-def _master_from_env_or_prompt() -> str:
+def _master_from_env_or_prompt(lang="es") -> str:
     pw = os.environ.get("JULIA_MASTER_PW")
     if pw:
         return pw
     import getpass
-    return getpass.getpass("Master password: ")
+    return getpass.getpass(t("prompt.master_password", lang))
 
-def run(argv: list[str], store_factory=None) -> int:
+def run(argv: list[str], store_factory=None, lang="es") -> int:
     parser = argparse.ArgumentParser(prog="julia_tool client")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -29,18 +30,18 @@ def run(argv: list[str], store_factory=None) -> int:
 
     ns = parser.parse_args(argv)
     factory = store_factory or (lambda pw: _real_store(pw))
-    store = factory(_master_from_env_or_prompt())
+    store = factory(_master_from_env_or_prompt(lang))
 
     if ns.cmd == "add":
         store.add(ClientCred(
             rfc=ns.rfc.upper(), name=ns.name, auth_type=ns.auth_type,
             ciec_password=ns.ciec_password, cer_path=ns.cer_path,
             key_path=ns.key_path, key_password=ns.key_password))
-        print(f"added {ns.rfc.upper()}")
+        print(t("cli.added", lang, rfc=ns.rfc.upper()))
         return 0
     if ns.cmd == "remove":
         ok = store.remove(ns.rfc.upper())
-        print("removed" if ok else "not found")
+        print(t("cli.removed", lang) if ok else t("cli.not_found", lang))
         return 0
     if ns.cmd == "list":
         for rfc in store.list_rfcs():

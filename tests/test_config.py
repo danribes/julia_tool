@@ -22,3 +22,18 @@ def test_missing_required_raises(tmp_path):
     p.write_text("tenant_id: t\n")
     with pytest.raises(ValueError):
         load_config(str(p))
+
+def test_language_defaults_to_es(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN)
+    assert load_config(str(p)).language == "es"
+
+def test_language_invalid_falls_back_to_es(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN + "language: fr\n")
+    assert load_config(str(p)).language == "es"
+
+def test_language_en_respected(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN + "language: EN\n")
+    assert load_config(str(p)).language == "en"
