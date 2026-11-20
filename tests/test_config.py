@@ -42,3 +42,19 @@ def test_settings_path_default(tmp_path):
     p = tmp_path / "c.yaml"
     p.write_text(_MIN)
     assert load_config(str(p)).settings_path == "ui_settings.json"
+
+
+def test_whatsapp_section_defaults_to_empty(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN)
+    assert load_config(str(p)).whatsapp == {}
+
+
+def test_whatsapp_section_is_loaded(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text(_MIN + "whatsapp:\n  enabled: true\n  phone_number_id: '123'\n"
+                 "  recipients: ['528112345678']\n")
+    wa = load_config(str(p)).whatsapp
+    assert wa["enabled"] is True
+    assert wa["phone_number_id"] == "123"
+    assert wa["recipients"] == ["528112345678"]

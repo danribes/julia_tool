@@ -8,11 +8,21 @@ def _esc(value) -> str:
 
 
 class Alerter:
-    def __init__(self, graph, session, responsible_email: str, lang: str = "es"):
+    def __init__(self, graph, session, responsible_email: str, lang: str = "es",
+                 whatsapp=None):
         self.graph = graph
         self.session = session
         self.to = responsible_email
         self.lang = lang
+        self.whatsapp = whatsapp  # optional WhatsAppNotifier; e-mail is always sent first
+
+    def _whatsapp(self, event: str, client: str = "—") -> None:
+        if self.whatsapp is None:
+            return
+        try:
+            self.whatsapp.notify(event, client)
+        except Exception:
+            pass  # the notifier logs its own failures; never block the e-mail path
 
     def send_urgent(self, rfc: str, client_name: str, cls: Classification,
                     pdf: tuple[str, bytes] | None) -> str:
@@ -31,6 +41,8 @@ class Alerter:
         )
         atts = [pdf] if pdf else None
         self.graph.send_mail(self.session, self.to, subject, body, atts)
+        self._whatsapp(t("wa.event.urgent", lang, urgency=ulabel, act_type=cls.act_type),
+                       f"{client_name} ({rfc})")
         return subject
 
     def send_quarantine(self, msg_subject: str, from_address: str, reason: str) -> str:
@@ -43,6 +55,7 @@ class Alerter:
             f"<p>{t('alert.quarantine.note', lang)}</p>"
         )
         self.graph.send_mail(self.session, self.to, subject, body, None)
+        self._whatsapp(t("wa.event.quarantine", lang))
         return subject
 
     def send_unknown_client(self, msg_subject: str) -> str:
@@ -53,6 +66,7 @@ class Alerter:
             f"<p>{t('alert.unknown.body', lang)}</p>"
         )
         self.graph.send_mail(self.session, self.to, subject, body, None)
+        self._whatsapp(t("wa.event.unknown", lang))
         return subject
 
     def send_fetch_failed(self, rfc: str, client_name: str, manual_url: str) -> str:
@@ -65,4 +79,5 @@ class Alerter:
             f'<p>{t("alert.fetch_failed.link", lang)}: <a href="{url}">{url}</a></p>'
         )
         self.graph.send_mail(self.session, self.to, subject, body, None)
+        self._whatsapp(t("wa.event.fetch_failed", lang), f"{client_name} ({rfc})")
         return subject
