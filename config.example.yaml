@@ -18,3 +18,14 @@ portal:
   notifications_selector: "table#notificaciones tbody tr"
   download_link_selector: "a.descargar"
 # keyword_map: optional override; omit to use built-in Spanish defaults
+# Optional WhatsApp alerts (Meta WhatsApp Cloud API) — see README "WhatsApp alerts".
+# The access token is NOT stored here: set the JULIA_WA_TOKEN environment variable.
+whatsapp:
+  enabled: false
+  phone_number_id: "YOUR-WHATSAPP-PHONE-NUMBER-ID"
+  recipients:
+    - "52XXXXXXXXXX"          # international format, digits only (Mexico: 52 + 10 digits)
+  template: julia_aviso_sat   # approved Utility template with two variables {{1}} {{2}}
+  template_lang: es_MX        # en_US if the template was created in English
+  include_client_details: true  # false = send only the event, never the client name/RFC
+  api_version: v21.0

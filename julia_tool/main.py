@@ -16,8 +16,36 @@ from julia_tool.settings import load_settings
 def build_now():
     return lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+def build_whatsapp(cfg, env=None, log=print):
+    """WhatsAppNotifier from config.yaml's `whatsapp:` section, or None when it is
+    off or incomplete. The access token comes only from JULIA_WA_TOKEN."""
+    from julia_tool.whatsapp import WhatsAppCloudClient, WhatsAppNotifier
+    wa = getattr(cfg, "whatsapp", None) or {}
+    if not wa.get("enabled"):
+        return None
+    env = os.environ if env is None else env
+    token = env.get("JULIA_WA_TOKEN")
+    lang = resolve_lang(getattr(cfg, "language", "es"))
+    if not token:
+        log(t("wa.warn.no_token", lang))
+        return None
+    if not wa.get("phone_number_id"):
+        log(t("wa.warn.invalid", lang, reason="phone_number_id"))
+        return None
+    client = WhatsAppCloudClient(wa["phone_number_id"], token,
+                                 api_version=wa.get("api_version", "v21.0"))
+    try:
+        return WhatsAppNotifier(client, wa.get("recipients", []),
+                                template=wa.get("template", "julia_aviso_sat"),
+                                lang_code=wa.get("template_lang", "es_MX"),
+                                include_client_details=wa.get("include_client_details", True),
+                                log=log)
+    except ValueError as exc:
+        log(t("wa.warn.invalid", lang, reason=exc))
+        return None
+
 def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
-            responsible=None, lang="es") -> dict:
+            responsible=None, lang="es", whatsapp=None) -> dict:
     now = build_now()
     settings_path = getattr(cfg, "settings_path", "")
     settings = load_settings(settings_path) if settings_path else load_settings("")
@@ -29,7 +57,10 @@ def run_once(cfg, store, state, graph, session, fetcher, dry_run=False,
     else:
         resolved_responsible = cfg.responsible_email
     alert_words = settings.get("alert_words", [])
-    alerter = Alerter(graph, session, resolved_responsible, lang=resolve_lang(lang))
+    alerter_kwargs = {"lang": resolve_lang(lang)}
+    if whatsapp is not None:
+        alerter_kwargs["whatsapp"] = whatsapp
+    alerter = Alerter(graph, session, resolved_responsible, **alerter_kwargs)
     def classify_pdf(path):
         return classify_text(extract_pdf_text(path), cfg.keyword_map)
     tally: dict[str, int] = {}
@@ -84,10 +115,12 @@ def main(argv=None):
     token = graph.acquire_token(prompt=True)
     session = graph.session(token)
     fetcher = BuzonFetcher(cfg.portal, cfg.download_dir)
+    whatsapp = build_whatsapp(cfg)
 
     while True:
         tally = run_once(cfg, store, state, graph, session, fetcher,
-                         dry_run=ns.dry_run, responsible=ns.responsible, lang=lang)
+                         dry_run=ns.dry_run, responsible=ns.responsible, lang=lang,
+                         whatsapp=whatsapp)
         print(t("console.cycle_tally", lang, tally=tally), flush=True)
         if ns.once:
             return 0

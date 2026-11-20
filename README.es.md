@@ -183,6 +183,45 @@ Indicadores útiles en cada ejecución:
   (`--lang` también funciona antes de `client add` / `client list` / `client remove`).
   El valor predeterminado es `es`; un valor no reconocido recae en `es`.
 
+## Alertas por WhatsApp (opcional)
+
+Además del correo, `julia_tool` puede enviar un mensaje corto de WhatsApp al
+responsable en cada alerta (aviso urgente, descarga fallida, cliente no identificado,
+correo en cuarentena). Usa la **API de WhatsApp Cloud** oficial de Meta. El correo se
+envía siempre primero; si WhatsApp falla, se muestra el error y el correo y el
+procesamiento del aviso continúan.
+
+Configuración única por parte del despacho:
+
+1. Crear (o usar) la cuenta **Meta Business** del despacho en business.facebook.com.
+2. En developers.facebook.com crear una app de tipo **Business** y añadir el producto
+   **WhatsApp**. Añadir el número del despacho que enviará los avisos (no debe estar en
+   uso en la app de WhatsApp del teléfono) y verificarlo. Anotar su **Phone number ID**.
+3. Crear un **token de acceso permanente**: Configuración del negocio → Usuarios del
+   sistema → añadir un usuario del sistema → asignarle la app y la cuenta de WhatsApp →
+   *Generar token* con el permiso `whatsapp_business_messaging`. Guardarlo en secreto.
+4. En WhatsApp Manager → **Plantillas de mensajes** → crear una plantilla:
+   - Categoría **Utilidad**, nombre `julia_aviso_sat`, idioma **Español (MEX)** (`es_MX`)
+   - Cuerpo: `Aviso de julia_tool: {{1}}. Cliente: {{2}}. Revisa el correo del despacho para ver el detalle.`
+   - Enviarla a aprobación (normalmente de minutos a unas horas).
+5. Completar el bloque `whatsapp:` de `config.yaml` (ver `config.example.yaml`):
+   `enabled: true`, el `phone_number_id` y el número o números destinatarios en formato
+   internacional, solo dígitos (México: `52` + 10 dígitos).
+6. Arrancar la herramienta con el token en una variable de entorno:
+   ```bash
+   JULIA_WA_TOKEN='EAAG...' JULIA_MASTER_PW=$JULIA_MASTER_PW python -m julia_tool.main
+   ```
+   Con Docker, añadir `-e JULIA_WA_TOKEN` a `docker run`. Sin la variable, la
+   herramienta muestra un aviso y envía solo correo.
+
+El mensaje se ve, por ejemplo, así: *"Aviso de julia_tool: URGENTE — requerimiento.
+Cliente: ACME (XAXX010101000). Revisa el correo del despacho para ver el detalle."*
+Con `include_client_details: false` no se envía por WhatsApp ni el nombre ni el RFC
+del cliente (la segunda variable muestra "—"). Meta cobra una pequeña tarifa por cada
+mensaje de utilidad entregado; consulte la tarifa vigente de Meta para México. Si un
+número mexicano no recibe el mensaje, revise el formato que Meta devuelve para ese
+número en la respuesta de la API (`wa_id`).
+
 ## Interfaz web
 
 ```bash

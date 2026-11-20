@@ -60,3 +60,65 @@ def test_urgent_escapes_client_name():
     body = a.graph.sent[0][2]
     assert "<b>Evil</b>" not in body
     assert "&lt;b&gt;Evil" in body
+
+
+# ---- WhatsApp channel (in addition to e-mail) ----
+
+class _FakeWA:
+    def __init__(self, raise_exc=False):
+        self.calls = []
+        self.raise_exc = raise_exc
+
+    def notify(self, event, client):
+        self.calls.append((event, client))
+        if self.raise_exc:
+            raise RuntimeError("whatsapp down")
+        return {"528100000002": "sent"}
+
+
+def _alerter_wa(lang="es", wa=None):
+    return Alerter(_FakeGraph(), session=None, responsible_email="boss@firm.mx", lang=lang,
+                   whatsapp=wa)
+
+
+def test_urgent_also_sends_whatsapp_after_email():
+    wa = _FakeWA()
+    a = _alerter_wa("es", wa)
+    cls = Classification("URGENT", "requerimiento", None, ["requerimiento"])
+    a.send_urgent("XAXX010101000", "ACME", cls, None)
+    assert len(a.graph.sent) == 1                       # e-mail still sent
+    event, client = wa.calls[0]
+    assert "URGENTE" in event and "requerimiento" in event
+    assert client == "ACME (XAXX010101000)"
+
+
+def test_whatsapp_failure_never_breaks_email_alert():
+    a = _alerter_wa("es", _FakeWA(raise_exc=True))
+    cls = Classification("URGENT", "requerimiento", None, ["requerimiento"])
+    subj = a.send_urgent("XAXX010101000", "ACME", cls, None)
+    assert subj.startswith("[URGENTE]")
+    assert len(a.graph.sent) == 1
+
+
+def test_other_alerts_also_reach_whatsapp_in_both_languages():
+    wa = _FakeWA()
+    es = _alerter_wa("es", wa)
+    es.send_quarantine("Falso SAT", "e@evil.com", "domain")
+    es.send_unknown_client("hola")
+    es.send_fetch_failed("XAXX010101000", "ACME", "https://sat.gob.mx/manual")
+    events = [c[0] for c in wa.calls]
+    assert "cuarentena" in events[0].lower()
+    assert "sin cliente" in events[1].lower()
+    assert "revisión manual" in events[2].lower()
+    assert wa.calls[2][1] == "ACME (XAXX010101000)"
+    wa_en = _FakeWA()
+    en = _alerter_wa("en", wa_en)
+    en.send_fetch_failed("XAXX010101000", "ACME", "https://sat.gob.mx/manual")
+    assert "manual review" in wa_en.calls[0][0].lower()
+
+
+def test_no_whatsapp_configured_is_email_only():
+    a = _alerter("es")
+    cls = Classification("URGENT", "requerimiento", None, ["requerimiento"])
+    a.send_urgent("XAXX010101000", "ACME", cls, None)
+    assert len(a.graph.sent) == 1

@@ -256,3 +256,60 @@ def test_main_end_to_end_honors_settings_recipient(tmp_path, monkeypatch):
     rc = M.main(["--once"])
     assert rc == 0
     assert sent.get("to") == "ui@despacho.mx"   # settings recipient wins, NOT cfg@
+
+
+# ---- WhatsApp wiring ----
+
+def _wa_cfg(**wa):
+    from types import SimpleNamespace
+    return SimpleNamespace(whatsapp=wa, language="es")
+
+
+def test_build_whatsapp_disabled_returns_none():
+    assert main_mod.build_whatsapp(_wa_cfg(), env={}) is None
+    assert main_mod.build_whatsapp(_wa_cfg(enabled=False, phone_number_id="1",
+                                           recipients=["528112345678"]), env={"JULIA_WA_TOKEN": "x"}) is None
+
+
+def test_build_whatsapp_without_token_returns_none_and_warns():
+    logs = []
+    n = main_mod.build_whatsapp(_wa_cfg(enabled=True, phone_number_id="1", recipients=["528112345678"]),
+                                env={}, log=logs.append)
+    assert n is None
+    assert any("JULIA_WA_TOKEN" in line for line in logs)
+
+
+def test_build_whatsapp_configured_returns_notifier_with_defaults():
+    from julia_tool.whatsapp import WhatsAppNotifier
+    n = main_mod.build_whatsapp(_wa_cfg(enabled=True, phone_number_id="1",
+                                        recipients=["+52 81 1234 5678"]),
+                                env={"JULIA_WA_TOKEN": "tok"})
+    assert isinstance(n, WhatsAppNotifier)
+    assert n.recipients == ["528112345678"]
+    assert n.template == "julia_aviso_sat"
+    assert n.lang_code == "es_MX"
+
+
+def test_run_once_passes_whatsapp_to_alerter(monkeypatch):
+    captured = {}
+
+    class _FakeAlerter:
+        def __init__(self, graph, session, responsible_email, lang="es", whatsapp=None):
+            captured["whatsapp"] = whatsapp
+
+    monkeypatch.setattr(main_mod, "Alerter", _FakeAlerter)
+    from types import SimpleNamespace
+    cfg = SimpleNamespace(responsible_email="b@x.mx", keyword_map={}, allowed_domains=["sat.gob.mx"],
+                          portal={})
+    sentinel = object()
+    main_mod.run_once(cfg, None, None, _FakeGraph(), None, None, whatsapp=sentinel)
+    assert captured["whatsapp"] is sentinel
+
+
+def test_build_whatsapp_incomplete_or_invalid_config_warns_and_returns_none():
+    logs = []
+    assert main_mod.build_whatsapp(_wa_cfg(enabled=True), env={"JULIA_WA_TOKEN": "x"},
+                                   log=logs.append) is None
+    assert main_mod.build_whatsapp(_wa_cfg(enabled=True, phone_number_id="1", recipients=["123"]),
+                                   env={"JULIA_WA_TOKEN": "x"}, log=logs.append) is None
+    assert len(logs) == 2 and all("WhatsApp" in line for line in logs)

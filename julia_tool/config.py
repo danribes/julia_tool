@@ -22,6 +22,7 @@ class Config:
     download_dir: str = "downloads"
     settings_path: str = "ui_settings.json"
     language: str = "es"
+    whatsapp: dict = field(default_factory=dict)  # optional; see README "WhatsApp alerts"
 
 def load_config(path: str) -> Config:
     with open(path, "r", encoding="utf-8") as f:
@@ -44,4 +45,5 @@ def load_config(path: str) -> Config:
         download_dir=raw.get("download_dir", "downloads"),
         settings_path=raw.get("settings_path", "ui_settings.json"),
         language=resolve_lang(raw.get("language", "es")),
+        whatsapp=raw.get("whatsapp") or {},
     )

@@ -172,6 +172,44 @@ Useful flags on every run:
   `client list` / `client remove`). Default is `es`; an unrecognized value falls back
   to `es`.
 
+## WhatsApp alerts (optional)
+
+Besides the e-mail, `julia_tool` can send a short WhatsApp message to the responsible
+person for every alert (urgent notice, download failed, unknown client, quarantined
+e-mail). It uses Meta's official **WhatsApp Cloud API**. The e-mail is always sent
+first; if WhatsApp fails, the error is printed and the e-mail and the processing of
+the notice carry on.
+
+One-time setup by the firm:
+
+1. Create (or use) the firm's **Meta Business** account at business.facebook.com.
+2. At developers.facebook.com create an app of type **Business** and add the
+   **WhatsApp** product. Add the firm's sending phone number (it must not be in use
+   in the WhatsApp phone app) and verify it. Note its **Phone number ID**.
+3. Create a **permanent access token**: Business settings → System users → add a
+   system user → assign it the app and the WhatsApp account → *Generate token* with
+   the `whatsapp_business_messaging` permission. Keep it secret.
+4. In WhatsApp Manager → **Message templates** → create a template:
+   - Category **Utility**, name `julia_aviso_sat`, language **Spanish (MEX)** (`es_MX`)
+   - Body: `Aviso de julia_tool: {{1}}. Cliente: {{2}}. Revisa el correo del despacho para ver el detalle.`
+   - Submit it for approval (usually minutes to a few hours).
+5. Fill the `whatsapp:` block in `config.yaml` (see `config.example.yaml`): set
+   `enabled: true`, the `phone_number_id` and the recipient number(s) in international
+   format, digits only (Mexico: `52` + 10 digits).
+6. Start the tool with the token in the environment:
+   ```bash
+   JULIA_WA_TOKEN='EAAG...' JULIA_MASTER_PW=$JULIA_MASTER_PW python -m julia_tool.main
+   ```
+   With Docker, add `-e JULIA_WA_TOKEN` to `docker run`. Without the variable the tool
+   prints a warning and sends e-mail only.
+
+The message reads, for example: *"Aviso de julia_tool: URGENTE — requerimiento.
+Cliente: ACME (XAXX010101000). Revisa el correo del despacho para ver el detalle."*
+Set `include_client_details: false` to leave the client name and RFC out of WhatsApp
+(the second variable then shows "—"). Meta charges a small fee per delivered utility
+message; check Meta's current pricing for Mexico. If a Mexican number is not reached,
+check the number format Meta shows for it in the API's response (`wa_id`).
+
 ## Web UI
 
 ```bash
