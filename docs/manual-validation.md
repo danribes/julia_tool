@@ -88,9 +88,13 @@ manual run.
 Checklist:
 
 - [ ] The browser opens to `config.yaml`'s `portal.efirma_login_url`
-      (`https://cfdiau.sat.gob.mx/nidp/app/login?id=fielHtml5` in
-      `config.example.yaml` — confirm this is still current; SAT changes URLs
-      occasionally).
+      (`https://wwwmat.sat.gob.mx/app/seg/faces/pages/lanzador.jsf?url=/buzon&tipoLogeo=c&target=principal`
+      in `config.example.yaml`, the login frame of SAT's Buzón page
+      `https://wwwmat.sat.gob.mx/personas/iniciar-sesion`). Choose the **e.firma**
+      option on that page and record how it is selected (a button, or a different
+      `tipoLogeo` value) — update `efirma_login_url` if it has its own address. The
+      older `cfdiau.sat.gob.mx/nidp/app/login?id=fielHtml5` address now shows an empty
+      "Select an authentication card" page (checked 2026-11-20).
 - [ ] Identify the real selectors for: the `.cer` file upload input, the `.key` file
       upload input, the key-password field, and the submit control. Use
       `playwright codegen <efirma_login_url>` or the browser devtools inspector — do
@@ -182,8 +186,9 @@ and the window will appear.
 Checklist:
 
 - [ ] The browser opens to `config.yaml`'s `portal.ciec_login_url`
-      (`https://cfdiau.sat.gob.mx/nidp/app/login?id=SATUPCB` in
-      `config.example.yaml` — confirm current).
+      (`https://wwwmat.sat.gob.mx/app/seg/faces/pages/lanzador.jsf?url=/buzon&tipoLogeo=c&target=principal`
+      in `config.example.yaml` — the Contraseña login of the Buzón; confirm it shows
+      the RFC, Contraseña and captcha fields from the firm's machine).
 - [ ] Identify and record the real selectors for the RFC field, the password
       (Contraseña) field, and the captcha challenge element (image/reCAPTCHA/etc — this
       one is **not** automated, just note what it looks like so the operator recognizes

@@ -12,9 +12,15 @@ state_path: state.sqlite
 download_dir: downloads
 settings_path: ui_settings.json   # web-UI settings (alert words + recipient)
 portal:
-  efirma_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=fielHtml5"
-  ciec_login_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=SATUPCB"
-  buzon_url: "https://cfdiau.sat.gob.mx/nidp/app/login?id=SATx509Custom"
+  # SAT's official Buzón Tributario login page (checked 2026-11-20). Alerts link here
+  # for "log in manually". The old cfdiau.sat.gob.mx/nidp/app/login?id=... addresses
+  # now open an empty "Select an authentication card" page.
+  buzon_url: "https://wwwmat.sat.gob.mx/personas/iniciar-sesion"
+  # Login frame embedded in that page (RFC + Contraseña + captcha; the e.firma option is
+  # chosen inside the same page). UNVERIFIED for automation: the frame did not load from
+  # a test machine outside Mexico — confirm on-site (docs/manual-validation.md).
+  ciec_login_url: "https://wwwmat.sat.gob.mx/app/seg/faces/pages/lanzador.jsf?url=/buzon&tipoLogeo=c&target=principal"
+  efirma_login_url: "https://wwwmat.sat.gob.mx/app/seg/faces/pages/lanzador.jsf?url=/buzon&tipoLogeo=c&target=principal"
   notifications_selector: "table#notificaciones tbody tr"
   download_link_selector: "a.descargar"
 # keyword_map: optional override; omit to use built-in Spanish defaults

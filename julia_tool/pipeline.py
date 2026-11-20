@@ -35,7 +35,7 @@ def process_message(msg, *, cfg, store, state, alerter, fetcher,
     ts = now()
     result = fetcher.fetch(cred)
     state.log_credential_use(rfc, "buzon_login", "ok" if result.ok else "fail", ts)
-    manual_url = cfg.portal.get("buzon_url", "https://www.sat.gob.mx")
+    manual_url = cfg.portal.get("buzon_url", "https://wwwmat.sat.gob.mx/personas/iniciar-sesion")
     if not result.ok:
         alerter.send_fetch_failed(rfc, cred.name, manual_url)
         return _finish("fetch_failed")
